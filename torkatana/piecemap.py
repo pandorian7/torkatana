@@ -1,7 +1,6 @@
+from .types import TorrentSlice
 
 from typing import Literal, overload
-
-from torkatana.torrent import TorrentSlice
 
 
 class PieceMap:
