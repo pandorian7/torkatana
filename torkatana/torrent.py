@@ -6,7 +6,7 @@ import math
 
 from .types import File, TorrentSlice, FileSlice, FilePath, Path, PieceReaderFunc
 from .physical import absPathToFile, read_piece, reader
-from .verify import touchVerify, veryfyPiece
+from .verify import touchVerify, verifyPiece
 
 
 class TorrentBase:
@@ -168,7 +168,7 @@ class Torrent(TorrentBase):
         return read_piece(self, self.absPathToFile, reader, piece_index)
 
     def verifyPiece(self, reader: PieceReaderFunc, piece_index: int):
-        return veryfyPiece(self, self.absPathToFile, reader, piece_index)
+        return verifyPiece(self, self.absPathToFile, reader, piece_index)
 
     def reader(self):
         return reader(self.absPathToFile)
