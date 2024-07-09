@@ -1,33 +1,16 @@
-from typing import NamedTuple
+from functools import partial
 import torrent_parser as tp
-import typing
+from typing import Optional
+import os.path
 import math
-import os
+
+from .types import File, TorrentSlice, FileSlice, FilePath, Path, PieceReaderFunc
+from .physical import absPathToFile, read_piece, reader
+from .verify import touchVerify, veryfyPiece
 
 
-class File(NamedTuple):
-    index: int
-    path: str
-    size: int
-    offset: int
-
-
-class TorrentSlice(NamedTuple):
-    first_index: int
-    first_offset: int
-    first_size: int
-    jumps: int
-    last_size: int
-
-
-class FileSlice(NamedTuple):
-    file_index: int
-    offset: int
-    size: int
-
-
-class Torrent:
-    def __init__(self, torrnt_path: str | os.PathLike):
+class TorrentBase:
+    def __init__(self, torrnt_path: FilePath):
         self.__torrent_path = torrnt_path
         self.__torrent_info = tp.parse_torrent_file(torrnt_path)
 
@@ -91,7 +74,7 @@ class Torrent:
         else:
             return self.pieceLength
 
-    def mapFile(self, file_index: int, file_offset: int = 0, size: typing.Optional[int] = None) -> TorrentSlice:
+    def mapFile(self, file_index: int, file_offset: int = 0, size: Optional[int] = None) -> TorrentSlice:
 
         if file_index not in self.fileRange:
             raise IndexError('file index out of range')
@@ -112,7 +95,7 @@ class Torrent:
 
         return TorrentSlice(piece_index, piece_offset, first_size, jumps, last_size)
 
-    def mapBlock(self, piece_index: int, piece_offset: int = 0, size: typing.Optional[int] = None, dynamic_size: bool = True) -> tuple[FileSlice, ...]:
+    def mapBlock(self, piece_index: int, piece_offset: int = 0, size: Optional[int] = None, dynamic_size: bool = True) -> tuple[FileSlice, ...]:
         if piece_index not in self.pieceRange:
             raise IndexError("piece index out of range")
 
@@ -125,7 +108,7 @@ class Torrent:
         # TORRENT_ASSERT(max_file_offset / m_piece_length > static_cast<int>(piece));
 
         if not size:
-            size = self.pieceLength
+            size = self.pieceSize(piece_index)
 
         # offset in the torrent
         global_offset = piece_index * self.pieceLength + piece_offset
@@ -153,6 +136,39 @@ class Torrent:
             slices.append(fs)
             file_offset = 0
             size -= file_size
-            pointer_file_index = self.files[pointer_file_index+1].index
+            if (size > 0):
+                pointer_file_index = self.files[pointer_file_index+1].index
 
         return tuple(slices)
+
+
+class Torrent(TorrentBase):
+    __physical_path: Optional[FilePath] = None
+
+    def setPhysicalPath(self, path: FilePath):
+        self.__physical_path = Path(path)
+        return self
+
+    @property
+    def physicalPath(self):
+        if isinstance(self.__physical_path, Path):
+            return self.__physical_path
+        raise Exception('physical path required')
+
+    def getFile(self, file_index: int):
+        return self.files[file_index]
+
+    def absPathToFile(self, file_index: int) -> Path:
+        return partial(absPathToFile, self, self.physicalPath)(file_index)
+
+    def touchVerify(self):
+        return touchVerify(self.absPathToFile, self.numFiles)
+
+    def readPiece(self, reader: PieceReaderFunc, piece_index: int):
+        return read_piece(self, self.absPathToFile, reader, piece_index)
+
+    def verifyPiece(self, reader: PieceReaderFunc, piece_index: int):
+        return veryfyPiece(self, self.absPathToFile, reader, piece_index)
+
+    def reader(self):
+        return reader(self.absPathToFile)
