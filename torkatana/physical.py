@@ -1,4 +1,4 @@
-from .types import FilePath, Path, PieceReaderFunc, BufferedReader
+from .types import FilePath, Path, ReaderFunc, BufferedReader
 
 from typing import TYPE_CHECKING, Callable, Optional
 from contextlib import contextmanager
@@ -13,7 +13,7 @@ def absPathToFile(torrent: 'TorrentBase', torrent_path: FilePath, file_index: in
 
 def read_piece(torrent: 'TorrentBase',
                get_abs_path: Callable[[int], Path],
-               reader: PieceReaderFunc,
+               reader: ReaderFunc,
                index: int) -> bytes:
     piece = bytes()
     f_slices = torrent.mapBlock(index)
