@@ -1,6 +1,6 @@
-from .types import FilePath, Path, ReaderFunc, BufferedReader
+from .types import FilePath, Path, ReaderFunc
 
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional, Literal, BinaryIO
 from contextlib import contextmanager
 
 if TYPE_CHECKING:
@@ -25,37 +25,83 @@ def read_piece(torrent: 'TorrentBase',
     return piece
 
 
-@contextmanager
-def reader(get_abs_path: Callable[[int], Path]):
-
-    o_file: Optional[BufferedReader] = None
+def __reader_or_writer_wrapper(get_abs_path: Callable[[int], Path], mode: Literal['read', 'write']):
+    o_file: Optional[BinaryIO] = None
     o_file_index = -1
     in_context = True
 
-    def read(file_index: int, file_offset: int, amount: int) -> bytes:
+    def read_or_write(file_index: int, file_offset: int, amount_or_data: int | bytes) -> int | bytes:
         nonlocal in_context, o_file, o_file_index
         # o = open
+
+        open_mode: Literal['rb', 'r+b']
+
+        if mode == 'read':
+            open_mode = 'rb'
+        else:
+            open_mode = 'r+b'
+
         if not in_context:
             raise Exception('use with context manager')
 
-        if isinstance(o_file, BufferedReader):
+        if isinstance(o_file, BinaryIO):
             if o_file_index != file_index:
                 o_file.close()
                 o_file = None
 
-        if not isinstance(o_file, BufferedReader):
-            o_file = open(get_abs_path(file_index), 'rb')
+        if not isinstance(o_file, BinaryIO):
+            o_file = open(get_abs_path(file_index), open_mode)
             o_file_index = file_index
 
         if (o_file.tell() != file_offset):
             o_file.seek(file_offset)
 
-        return o_file.read(amount)
+        ret = None
+        if mode == 'read':
+            if isinstance(amount_or_data, int):
+                ret = o_file.read(amount_or_data)
+        else:
+            if isinstance(amount_or_data, bytes):
+                ret = o_file.write(amount_or_data)
 
-    try:
-        yield read
-    finally:
-        if isinstance(o_file, BufferedReader):
+        assert ret is not None
+
+        return ret
+
+    def close_file():
+        nonlocal o_file, in_context
+        if isinstance(o_file, BinaryIO):
             o_file.close()
         o_file = None
         in_context = False
+
+    return read_or_write, close_file
+
+
+@contextmanager
+def reader(get_abs_path: Callable[[int], Path]):
+    __reader, closer = __reader_or_writer_wrapper(get_abs_path, 'read')
+
+    def _reader(file_index: int, file_offset: int, amount: int) -> bytes:
+        ret = __reader(file_index, file_offset, amount)
+        assert isinstance(ret, bytes)
+        return ret
+
+    try:
+        yield _reader
+    finally:
+        closer()
+
+
+def writer(get_abs_path: Callable[[int], Path]):
+    __writer, closer = __reader_or_writer_wrapper(get_abs_path, 'write')
+
+    def _writer(file_index: int, file_offset: int, data: bytes) -> int:
+        ret = __writer(file_index, file_offset, data)
+        assert isinstance(ret, int)
+        return ret
+
+    try:
+        yield _writer
+    finally:
+        closer()
