@@ -1,12 +1,14 @@
 from functools import partial
 import torrent_parser as tp
-from typing import Optional
+from typing import Callable, Optional
 import os.path
 import math
 
-from .types import File, TorrentSlice, FileSlice, FilePath, Path, PieceReaderFunc
-from .physical import absPathToFile, read_piece, reader
-from .verify import touchVerify, verifyPiece
+from torkatana.blocker import getBlockNamerAndParser, getNBlocks, getNDigits
+
+from .types import File, TorrentSlice, FileSlice, FilePath, Path, ReaderFunc
+from .physical import absPathToFile, read_piece, reader, writer
+from .verify import touchVerify, verifyPiece, verityTorrent
 
 
 class TorrentBase:
@@ -18,7 +20,8 @@ class TorrentBase:
         pos_pointer = 0
         for file_index, file in enumerate(self.__torrent_info['info']['files']):
             size = file['length']
-            path = os.path.join(*file['path'])
+            # path = os.path.join(*file['path'])
+            path = "/".join(file['path'])
             files.append(File(file_index, path, size, pos_pointer))
             pos_pointer += size
         self.__files = tuple(files)
@@ -144,10 +147,35 @@ class TorrentBase:
 
 class Torrent(TorrentBase):
     __physical_path: Optional[FilePath] = None
+    __blocks_path: Optional[FilePath] = None
+    __block_pattern: Optional[str] = None
+    __num_pieces_in_block: Optional[int] = None
+    __namer: Optional[Callable[[int], str]] = None
+    __parser: Optional[Callable[[str], int]] = None
 
     def setPhysicalPath(self, path: FilePath):
         self.__physical_path = Path(path)
         return self
+
+    def setBlocksPath(self, path: FilePath):
+        self.__blocks_path = Path(path)
+        return self
+
+    def setBlockPattern(self, pattern: str):
+        self.__block_pattern = pattern
+        return self
+
+    def setNPiecesInBlock(self, n: int):
+        self.__num_pieces_in_block = n
+        return self
+
+    def __setBlockNamerAndParser(self):
+        if self.__namer and self.__parser:
+            return
+        namer, parser = getBlockNamerAndParser(
+            self.blockPattern, getNDigits(self.numBlocks))
+        self.__namer = namer
+        self.__parser = parser
 
     @property
     def physicalPath(self):
@@ -155,20 +183,71 @@ class Torrent(TorrentBase):
             return self.__physical_path
         raise Exception('physical path required')
 
+    @property
+    def blocksPath(self):
+        if isinstance(self.__blocks_path, Path):
+            return self.__blocks_path
+        raise Exception('blocks path required')
+
+    @property
+    def blockPattern(self):
+        if isinstance(self.__block_pattern, str):
+            return self.__block_pattern
+        raise Exception('blocks pattern required')
+
+    @property
+    def numPiecesInBlock(self):
+        self.__namer = self.__parser = None
+        if isinstance(self.__num_pieces_in_block, int):
+            return self.__num_pieces_in_block
+        raise Exception('N pieces in block required')
+
+    @property
+    def blockSize(self):
+        return self.numPiecesInBlock*self.pieceLength
+
+    @property
+    def numBlocks(self):
+        return getNBlocks(self.totalSize, self.blockSize)
+
+    @property
+    def blockRange(self):
+        return range(self.numBlocks)
+
     def getFile(self, file_index: int):
         return self.files[file_index]
 
     def absPathToFile(self, file_index: int) -> Path:
         return partial(absPathToFile, self, self.physicalPath)(file_index)
 
+    def getBlockName(self, block_index: int):
+        self.__setBlockNamerAndParser()
+        assert self.__namer is not None
+        return self.__namer(block_index)
+
+    def parseBlockName(self, block_name: str):
+        self.__setBlockNamerAndParser()
+        assert self.__parser is not None
+        return self.__parser(block_name)
+
+    def absPathToBlock(self, block_index: int) -> Path:
+        return self.blocksPath / self.getBlockName(block_index)
+
     def touchVerify(self):
+        '''Checks for the existance of files and return tuple of missing file indexes'''
         return touchVerify(self.absPathToFile, self.numFiles)
 
-    def readPiece(self, reader: PieceReaderFunc, piece_index: int):
+    def readPiece(self, reader: ReaderFunc, piece_index: int):
         return read_piece(self, self.absPathToFile, reader, piece_index)
 
-    def verifyPiece(self, reader: PieceReaderFunc, piece_index: int):
+    def verifyPiece(self, reader: ReaderFunc, piece_index: int):
         return verifyPiece(self, self.absPathToFile, reader, piece_index)
+
+    def veriry(self, reader: ReaderFunc):
+        return verityTorrent(self, self.absPathToFile, reader)
 
     def reader(self):
         return reader(self.absPathToFile)
+
+    def writer(self):
+        return writer(self.absPathToBlock)

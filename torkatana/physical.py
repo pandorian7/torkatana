@@ -93,6 +93,7 @@ def reader(get_abs_path: Callable[[int], Path]):
         closer()
 
 
+@contextmanager
 def writer(get_abs_path: Callable[[int], Path]):
     __writer, closer = __reader_or_writer_wrapper(get_abs_path, 'write')
 

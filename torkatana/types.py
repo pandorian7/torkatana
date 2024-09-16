@@ -1,12 +1,13 @@
 from typing import Callable, NamedTuple
-from io import BufferedReader
 from os import PathLike
 from pathlib import Path
 from enum import Enum
 
 FilePath = str | PathLike[str]
 
-PieceReaderFunc = Callable[[int, int, int], bytes]
+ReaderFunc = Callable[[int, int, int], bytes]
+WriterFunc = Callable[[int, int, bytes], int]
+ReaderWriterFunc = ReaderFunc | WriterFunc
 
 
 class File(NamedTuple):

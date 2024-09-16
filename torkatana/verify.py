@@ -1,14 +1,14 @@
 from typing import TYPE_CHECKING, Callable
 from hashlib import sha1
 
-from .types import PieceReaderFunc, Path, PieceState
+from .types import ReaderFunc, Path, PieceState
 from .physical import read_piece
 
 if TYPE_CHECKING:
     from .torrent import TorrentBase
 
 
-def verifyPiece(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: PieceReaderFunc, piece_index: int) -> PieceState:
+def verifyPiece(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc, piece_index: int) -> PieceState:
     data = read_piece(torrent, get_abs_path, reader, piece_index)
 
     hash = sha1(data)
@@ -22,7 +22,7 @@ def verifyPiece(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], rea
     return PieceState.INCOMPLETE
 
 
-def verityTorrent(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: PieceReaderFunc):
+def verityTorrent(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc):
     for pi in torrent.pieceRange:
         yield verifyPiece(torrent, get_abs_path, reader, pi)
 
