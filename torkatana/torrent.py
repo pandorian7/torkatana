@@ -8,7 +8,7 @@ from torkatana.blocker import getBlockNamerAndParser, getNBlocks, getNDigits
 
 from .types import File, TorrentSlice, FileSlice, FilePath, Path, ReaderFunc
 from .physical import absPathToFile, read_piece, reader, writer
-from .verify import touchVerify, verifyPiece, verityTorrent
+from .verify import touchVerify, verifyPiece, verifyTorrent
 
 
 class TorrentBase:
@@ -243,8 +243,8 @@ class Torrent(TorrentBase):
     def verifyPiece(self, reader: ReaderFunc, piece_index: int):
         return verifyPiece(self, self.absPathToFile, reader, piece_index)
 
-    def veriry(self, reader: ReaderFunc):
-        return verityTorrent(self, self.absPathToFile, reader)
+    def verify(self, reader: ReaderFunc):
+        return verifyTorrent(self, self.absPathToFile, reader)
 
     def reader(self):
         return reader(self.absPathToFile)

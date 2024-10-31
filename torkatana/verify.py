@@ -22,7 +22,7 @@ def verifyPiece(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], rea
     return PieceState.INCOMPLETE
 
 
-def verityTorrent(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc):
+def verifyTorrent(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc):
     for pi in torrent.pieceRange:
         yield verifyPiece(torrent, get_abs_path, reader, pi)
 
