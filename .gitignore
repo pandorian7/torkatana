@@ -1,4 +1,4 @@
-main.py
+testing*.py
 venv/
 .vscode/
 __pycache__/
