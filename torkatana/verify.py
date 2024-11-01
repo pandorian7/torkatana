@@ -7,19 +7,32 @@ from .physical import read_piece
 if TYPE_CHECKING:
     from .torrent import TorrentBase
 
-
-def verifyPiece(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc, piece_index: int) -> PieceState:
-    data = read_piece(torrent, get_abs_path, reader, piece_index)
-
-    hash = sha1(data)
+def verifyPieceByBytes(torrent: 'TorrentBase', piece_index:int, piece_bytes:bytes):
+    hash = sha1(piece_bytes)
 
     state = torrent.hashes[piece_index] == hash.hexdigest()
 
     if state:
         return PieceState.OK
-    if len(data) == torrent.pieceSize(piece_index):
+    if len(piece_bytes) == torrent.pieceSize(piece_index):
         return PieceState.CORRUPT
     return PieceState.INCOMPLETE
+
+
+def verifyPiece(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc, piece_index: int) -> PieceState:
+    data = read_piece(torrent, get_abs_path, reader, piece_index)
+
+    return verifyPieceByBytes(torrent, piece_index, data)
+
+    # hash = sha1(data)
+
+    # state = torrent.hashes[piece_index] == hash.hexdigest()
+
+    # if state:
+    #     return PieceState.OK
+    # if len(data) == torrent.pieceSize(piece_index):
+    #     return PieceState.CORRUPT
+    # return PieceState.INCOMPLETE
 
 
 def verifyTorrent(torrent: 'TorrentBase', get_abs_path: Callable[[int], Path], reader: ReaderFunc):
