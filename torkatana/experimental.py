@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from .torrent import Torrent
 from .blocker import locatePieceInBlock
 from .verify import verifyPieceByBytes
@@ -38,3 +40,28 @@ def verifyBlock(torrent: 'Torrent', block_index: int, block_reader):
         if state != PieceState.OK:
             print(i, state)
         yield state
+
+
+def mergeBlocks(torrent: 'Torrent', output_directory):
+    def __read_piece_from_block(piece_index, offset, size, block_reader):
+        block_index, block_offset = locatePieceInBlock(torrent.pieceLength, torrent.numPiecesInBlock, piece_index)
+        data = block_reader(block_index, block_offset + offset, size)
+        return data
+    
+    def __read_chunks(t_slice, block_reader):
+        yield __read_piece_from_block(t_slice.first_index, t_slice.first_offset, t_slice.first_size, block_reader)
+
+        for i in range(t_slice.first_index+1, t_slice.first_index+t_slice.jumps):
+            yield __read_piece_from_block(i, 0, torrent.pieceLength, block_reader)
+
+        yield __read_piece_from_block(t_slice.first_index+t_slice.jumps, 0, t_slice.last_size, block_reader)
+
+
+    with blockReader(torrent) as block_reader:
+        for file in torrent.files:
+            torrent_slice = torrent.mapFile(file.index)
+            file_path = Path(output_directory) / file.path
+            file_path.parent.mkdir(exist_ok=True, parents=True)
+            with open(file_path, 'wb') as file_out:
+                for chunk in __read_chunks(torrent_slice, block_reader):
+                    yield file_out.write(chunk)
