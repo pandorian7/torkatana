@@ -93,8 +93,14 @@ class TorrentBase:
         piece_index = math.floor(offset/self.pieceLength)
         piece_offset = offset % self.pieceLength
         first_size = min(size, self.pieceLength - piece_offset)
-        jumps = math.ceil((size-first_size)/self.pieceLength)
-        last_size = size - first_size - (jumps-1) * self.pieceLength
+
+        size -= first_size
+
+        jumps = math.floor(size/self.pieceLength)
+
+        size -= jumps * self.pieceLength
+
+        last_size = size
 
         return TorrentSlice(piece_index, piece_offset, first_size, jumps, last_size)
 

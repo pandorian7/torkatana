@@ -49,12 +49,15 @@ def mergeBlocks(torrent: 'Torrent', output_directory):
         return data
     
     def __read_chunks(t_slice, block_reader):
-        yield __read_piece_from_block(t_slice.first_index, t_slice.first_offset, t_slice.first_size, block_reader)
+        index = t_slice.first_index
+        yield __read_piece_from_block(index, t_slice.first_offset, t_slice.first_size, block_reader)
+        index += 1
 
-        for i in range(t_slice.first_index+1, t_slice.first_index+t_slice.jumps):
-            yield __read_piece_from_block(i, 0, torrent.pieceLength, block_reader)
+        for i in range(t_slice.jumps):
+            yield __read_piece_from_block(index, 0, torrent.pieceLength, block_reader)
+            index += 1
 
-        yield __read_piece_from_block(t_slice.first_index+t_slice.jumps, 0, t_slice.last_size, block_reader)
+        yield __read_piece_from_block(index, 0, t_slice.last_size, block_reader)
 
 
     with blockReader(torrent) as block_reader:
