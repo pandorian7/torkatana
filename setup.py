@@ -8,6 +8,6 @@ setup(
     url="https://github.com/pandorian7/torkarana",
     author="Yasith Piyarathne",
     author_email="yasithpiyarathne@gmail.com",
-    packages=['torkatana', 'tqdm'],
-    install_requires=['torrent_parser'],
+    packages=['torkatana'],
+    install_requires=['torrent_parser', 'tqdm'],
 )
