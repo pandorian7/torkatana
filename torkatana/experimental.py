@@ -31,6 +31,16 @@ def splitBlock(torrent: 'Torrent', block_index:int , block_writer):
             block_path.touch(exist_ok=True)
             yield block_writer(block, offset, piece)
 
+def verifyBlocks(torrent: 'Torrent', block_reader):
+    for i in torrent.pieceRange:
+        block, offset = locatePieceInBlock(torrent.pieceLength, torrent.numPiecesInBlock, i)
+        piece = block_reader(block, offset, torrent.pieceSize(i))
+        state = verifyPieceByBytes(torrent, i, piece)
+        if state != PieceState.OK:
+            print(i, state)
+        yield state
+
+
 def verifyBlock(torrent: 'Torrent', block_index: int, block_reader):
     block_range = getBlockPieceRange(torrent, block_index)
     for i in block_range:
