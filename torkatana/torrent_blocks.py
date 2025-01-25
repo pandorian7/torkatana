@@ -15,6 +15,11 @@ class TorrentBlocks:
     def blockPattern(self) -> str:
         return self.__blocks_pattern
     
+    @blockPattern.setter
+    def blockPattern(self, value: str):
+        self.__blocks_pattern = value
+        self.__namer, self.__parser = getBlockNamerAndParser(value)
+    
     def getBlockName(self, block_index: int):
         return self.__namer(block_index)
     
