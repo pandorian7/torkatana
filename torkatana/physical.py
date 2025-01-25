@@ -2,6 +2,7 @@ from .types import FilePath, Path, ReaderFunc
 
 from typing import TYPE_CHECKING, Callable, Optional, Literal, BinaryIO
 from contextlib import contextmanager
+import os.path
 
 if TYPE_CHECKING:
     from .torrent import TorrentBase
@@ -25,7 +26,11 @@ def read_piece(torrent: 'TorrentBase',
     return piece
 
 
-def __reader_or_writer_wrapper(get_abs_path: Callable[[int], Path], mode: Literal['read', 'write']):
+##################################################
+# I Will Never DO THIS IN MY LIFE AGAIN          #
+##################################################
+def __reader_or_writer_wrapper(get_abs_path: Callable[[int], Path], mode: Literal['read', 'write'], resolve_when_file_not_exist=False):
+    # resolve_when_file_not_exist = True will create the file if it does int exist in write mode
     o_file: Optional[BinaryIO] = None
     o_file_index = -1
     in_context = True
@@ -50,7 +55,10 @@ def __reader_or_writer_wrapper(get_abs_path: Callable[[int], Path], mode: Litera
                 o_file = None
 
         if not isinstance(o_file, BinaryIO):
-            o_file = open(get_abs_path(file_index), open_mode)
+            open_mode2 = open_mode
+            if resolve_when_file_not_exist and mode=="write" and not os.path.exists(get_abs_path(file_index)):
+                open_mode2 = 'wb'
+            o_file = open(get_abs_path(file_index), open_mode2)
             o_file_index = file_index
 
         if (o_file.tell() != file_offset):
@@ -94,8 +102,8 @@ def reader(get_abs_path: Callable[[int], Path]):
 
 
 @contextmanager
-def writer(get_abs_path: Callable[[int], Path]):
-    __writer, closer = __reader_or_writer_wrapper(get_abs_path, 'write')
+def writer(get_abs_path: Callable[[int], Path], create_file_if_not_exist=False):
+    __writer, closer = __reader_or_writer_wrapper(get_abs_path, 'write', create_file_if_not_exist)
 
     def _writer(file_index: int, file_offset: int, data: bytes) -> int:
         ret = __writer(file_index, file_offset, data)
