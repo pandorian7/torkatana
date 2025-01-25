@@ -23,6 +23,15 @@ class BlockSpan:
                 bs.addPieceToBlock(-1, i)
         return bs
 
+    @classmethod
+    def fromArray(cls, torrent: TorrentInfo, span: list[list[int]]):
+        bs = cls(torrent)
+        for block in span:
+            bs.addBlock()
+            for piece in block:
+                bs.addPieceToBlock(-1, piece)
+        return bs
+
     @property
     def torrent(self) -> TorrentInfo:
         return self.__torrent
@@ -31,8 +40,8 @@ class BlockSpan:
         self.__span.append(list())
         return len(self.__span) - 1
     
-    def span(self):
-        return tuple(self.__span)  
+    def toArray(self):
+        return tuple(map(tuple, self.__span))  
     
     def addPieceToBlock(self, block_index: int, piece_index: int):
         if block_index < 0:
@@ -57,7 +66,9 @@ class BlockSpan:
                 if len(new_bs.__span[-1]) == n_pieces:
                     new_bs.addBlock()
                 new_bs.addPieceToBlock(-1, piece)
-        return new_bs
+        
+        self.__piece_map = new_bs.__piece_map
+        self.__span = new_bs.__span
     
     def addPieceToTail(self, piece_index: int):
         if not self.PiecesPerBlock:
